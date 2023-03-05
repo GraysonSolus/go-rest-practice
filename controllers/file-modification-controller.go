@@ -91,7 +91,6 @@ func resizeImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resized := imaging.Resize(rawImg, width, height, imaging.Lanczos)
-	imaging.Rotate()
 	// err = imaging.Save(resized, fmt.Sprintf("public/single/%v", "resizedImg.png"))
 	// if err != nil {
 	// 	log.Fatalf("failed to save image: %v", err)
