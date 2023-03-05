@@ -1,21 +1,19 @@
-package filemod
+package controllers
 
 import (
 	"fmt"
 	"image"
 	"image/color"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/disintegration/imaging"
 )
 
-func resizeImage(w http.ResponseWriter, r *http.Request) {
+func ResizeImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("File Upload Endpoint Hit")
 
-	// Parse our multipart form, 10 << 20 specifies a maximum
-	// upload of 10 MB files.
+	// Max upload of 10 MB files.
 	r.ParseMultipartForm(10 << 20)
 
 	rawWidth := r.FormValue("width")
@@ -46,7 +44,7 @@ func resizeImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, fileHeader, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
@@ -58,32 +56,10 @@ func resizeImage(w http.ResponseWriter, r *http.Request) {
 
 	defer file.Close()
 
-	// TODO: move this to a security package
-	buff := make([]byte, 512)
-	_, err = file.Read(buff)
-	if err != nil {
-		fmt.Println(err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-
-		return
-	}
-
-	// checking the content type
-	// so we don't allow files other than images
-	filetype := http.DetectContentType(buff)
-	if filetype != "image/jpeg" && filetype != "image/png" && filetype != "image/jpg" {
-		fmt.Println("The provided file format is not allowed. Please upload a JPEG,JPG or PNG image")
-
-		w.WriteHeader(http.StatusBadRequest)
-
-		return
-	}
-
 	// TODO: Move this into an image manipulation service
 	rawImg, _, err := image.Decode(file)
 	if err != nil {
-		fmt.Println("Failed to decode image from file")
+		fmt.Println("Failed to decode image from file: " + err.Error())
 
 		w.WriteHeader(http.StatusBadRequest)
 
@@ -91,24 +67,13 @@ func resizeImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resized := imaging.Resize(rawImg, width, height, imaging.Lanczos)
-	// err = imaging.Save(resized, fmt.Sprintf("public/single/%v", "resizedImg.png"))
-	// if err != nil {
-	// 	log.Fatalf("failed to save image: %v", err)
-	// }
-
-	fmt.Printf("Uploaded File: %+v\n", fileHeader.Filename)
-	fmt.Printf("File Size: %+v\n", fileHeader.Size)
-	fmt.Printf("MIME Header: %+v\n", fileHeader.Header)
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	imaging.Encode(w, resized, imaging.PNG)
-
-	// return that we have successfully uploaded our file!
-	fmt.Fprintf(w, "Successfully Uploaded File\n")
 }
 
-func rotateImage(w http.ResponseWriter, r *http.Request) {
+func RotateImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("File Upload Endpoint Hit")
 
 	// Parse our multipart form, 10 << 20 specifies a maximum
@@ -125,7 +90,7 @@ func rotateImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, fileHeader, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
@@ -136,28 +101,6 @@ func rotateImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer file.Close()
-
-	// TODO: move this to a security package
-	buff := make([]byte, 512)
-	_, err = file.Read(buff)
-	if err != nil {
-		fmt.Println(err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-
-		return
-	}
-
-	// checking the content type
-	// so we don't allow files other than images
-	filetype := http.DetectContentType(buff)
-	if filetype != "image/jpeg" && filetype != "image/png" && filetype != "image/jpg" {
-		fmt.Println("The provided file format is not allowed. Please upload a JPEG,JPG or PNG image")
-
-		w.WriteHeader(http.StatusBadRequest)
-
-		return
-	}
 
 	// TODO: Move this into an image manipulation service
 	rawImg, _, err := image.Decode(file)
@@ -170,17 +113,10 @@ func rotateImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rotated := imaging.Rotate(rawImg, degrees, color.Transparent)
-	err = imaging.Save(rotated, fmt.Sprintf("public/single/%v", "rotatedImg.jpg"))
-	if err != nil {
-		log.Fatalf("failed to save image: %v", err)
-	}
-
-	fmt.Printf("Uploaded File: %+v\n", fileHeader.Filename)
-	fmt.Printf("File Size: %+v\n", fileHeader.Size)
-	fmt.Printf("MIME Header: %+v\n", fileHeader.Header)
-
-	// return that we have successfully uploaded our file!
-	fmt.Fprintf(w, "Successfully Uploaded File\n")
+	// err = imaging.Save(rotated, "rotatedImg.png")
+	// if err != nil {
+	// 	log.Fatalf("failed to save image: %v", err)
+	// }
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/octet-stream")
