@@ -1,11 +1,14 @@
 package controller_test
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/GraysonSolus/go-rest-practice/internal/image-modification-service/controller"
@@ -55,36 +58,44 @@ func TestImageModController_HandleResizeImageOperation(t *testing.T) {
 		setupTestCase(t)
 
 		expectedImg := &image.NRGBA{}
+		var buf bytes.Buffer
+		fileWriter := multipart.NewWriter(&buf)
 
-		// pr, pw := io.Pipe()
-
-		// fileWriter := multipart.NewWriter(pw)
-
-		// defer fileWriter.Close()
-
-		// filePart, err := fileWriter.CreateFormFile("image", "test_img.jpeg")
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-
-		// err = jpeg.Encode(filePart, expectedImg, nil)
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-
-		// fileWriter.Close()
-
-		request, err := http.NewRequest("POST", "/resize", nil)
+		err := jpeg.Encode(&buf, expectedImg, nil)
 		if err != nil {
 			t.Error(err)
 		}
 
-		request.MultipartForm.File["image"] = nil
-		// request.Header.Add("Content-Type", fileWriter.FormDataContentType())
+		if err = fileWriter.Close(); err != nil {
+			t.Error(err)
+		}
+
+		request, err := http.NewRequest("POST", "/resize", &buf)
+		if err != nil {
+			t.Error(err)
+		}
+
+		request.Header.Add("Content-Type", fileWriter.FormDataContentType())
+
+		testHeader := textproto.MIMEHeader{}
+		testHeader.Add("test", "image")
+
+		fh := &multipart.FileHeader{
+			Filename: "test_img.jpeg",
+			Header:   testHeader,
+		}
+
+		mfh := make([]*multipart.FileHeader, 0)
+		mfh = append(mfh, fh)
+
+		request.ParseMultipartForm(10 << 20)
+		request.MultipartForm.File["image"] = mfh
+
+		file, _, _ := request.FormFile("image") // Don't care about errors here, just need a return object for our ReadInResizeParams method
 
 		controller := controller.NewImageModController(&fakeImageModSvc, &fakeValidator)
 
-		fakeValidator.On("ReadInResizeParams", request).Return(nil, 200, 200, nil)
+		fakeValidator.On("ReadInResizeParams", request).Return(file, 200, 200, nil)
 		fakeImageModSvc.On("ResizeImage", mock.Anything, mock.Anything, mock.Anything).Return(expectedImg, nil)
 
 		resRecorder := httptest.NewRecorder()
